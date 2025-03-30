@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Problema de Busca - Algoritmos de Grafos</title>
+    <title>Problema de Busca - Algoritmos</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -103,10 +103,10 @@
     </style>
 </head>
 <body>
-    <h1>Problema de Busca - Mapa da Romênia</h1>
+    <h1>Problema de Busca</h1>
     
     <div class="image-container">
-        <img src="/api/placeholder/600/450" alt="Mapa das cidades da Romênia com distâncias">
+        <img src="/image.jpg" alt="Mapa das cidades">
     </div>
     
     <div class="form-container">
@@ -162,250 +162,325 @@
     </div>
     
     <script>
-// Algoritmos de busca com nomes em português brasileiro
+// Mapa das cidades e suas distâncias
+const graph = {
+    'Arad': {'Zerind': 75, 'Sibiu': 140, 'Timisoara': 118},
+    'Zerind': {'Arad': 75, 'Oradea': 71},
+    'Oradea': {'Zerind': 71, 'Sibiu': 151},
+    'Sibiu': {'Arad': 140, 'Oradea': 151, 'Fagaras': 99, 'RimnicuVilcea': 80},
+    'Timisoara': {'Arad': 118, 'Lugoj': 111},
+    'Lugoj': {'Timisoara': 111, 'Mehadia': 70},
+    'Mehadia': {'Lugoj': 70, 'Drobeta': 75},
+    'Drobeta': {'Mehadia': 75, 'Craiova': 120},
+    'Craiova': {'Drobeta': 120, 'RimnicuVilcea': 146, 'Pitesti': 138},
+    'RimnicuVilcea': {'Sibiu': 80, 'Craiova': 146, 'Pitesti': 97},
+    'Fagaras': {'Sibiu': 99, 'Bucharest': 211},
+    'Pitesti': {'RimnicuVilcea': 97, 'Craiova': 138, 'Bucharest': 101},
+    'Bucharest': {'Fagaras': 211, 'Pitesti': 101, 'Giurgiu': 90, 'Urziceni': 85},
+    'Giurgiu': {'Bucharest': 90},
+    'Urziceni': {'Bucharest': 85, 'Hirsova': 98, 'Vaslui': 142},
+    'Hirsova': {'Urziceni': 98, 'Eforie': 86},
+    'Eforie': {'Hirsova': 86},
+    'Vaslui': {'Urziceni': 142, 'Iasi': 92},
+    'Iasi': {'Vaslui': 92, 'Neamt': 87},
+    'Neamt': {'Iasi': 87}
+};
 
-function buscaEmLargura(start, end) {
-    const frontier = [{node: start, path: [start]}];
-    const explored = new Set();
+// Heurística - distâncias em linha reta
+const heuristic = {
+    'Arad': 366, 'Zerind': 374, 'Oradea': 380, 'Sibiu': 253,
+    'Timisoara': 329, 'Lugoj': 244, 'Mehadia': 241, 'Drobeta': 242,
+    'Craiova': 160, 'RimnicuVilcea': 193, 'Fagaras': 176, 'Pitesti': 100,
+    'Bucharest': 0, 'Giurgiu': 77, 'Urziceni': 80, 'Hirsova': 151,
+    'Eforie': 161, 'Vaslui': 199, 'Iasi': 226, 'Neamt': 234
+};
+
+// Coloca as cidades nos dropdowns
+function preencherDropdownsCidades() {
+    let cidades = Object.keys(graph);
+    cidades.sort(); // deixa em ordem alfabética pra ficar bonitinho
+    let inicio = document.getElementById('start');
+    let fim = document.getElementById('end');
     
-    while (frontier.length) {
-        const current = frontier.shift();
-        
-        if (current.node === end) {
-            return {
-                path: current.path,
-                cost: calculateTotalCost(current.path)
-            };
+    inicio.innerHTML = '<option value="">Escolha uma cidade</option>';
+    fim.innerHTML = '<option value="">Escolha uma cidade</option>';
+    
+    for (let cidade of cidades) {
+        inicio.innerHTML += `<option value="${cidade}">${cidade}</option>`;
+        fim.innerHTML += `<option value="${cidade}">${cidade}</option>`;
+    }
+    
+    inicio.value = 'Arad'; // ponto de partida padrão
+    fim.value = 'Bucharest'; // destino padrão
+}
+
+// Mostra ou esconde os campos extras dependendo do algoritmo
+document.getElementById('algorithm').onchange = function() {
+    let algo = this.value;
+    let dlsBox = document.getElementById('dls-params');
+    let iddfsBox = document.getElementById('iddfs-params');
+    
+    dlsBox.style.display = algo == 'dls' ? 'block' : 'none';
+    iddfsBox.style.display = algo == 'iddfs' ? 'block' : 'none';
+};
+
+// Calcula o custo total do caminho
+function calcularCustoTotal(caminho) {
+    if (!caminho || caminho.length < 2) return 0;
+    let custo = 0;
+    for (let i = 0; i < caminho.length - 1; i++) {
+        custo += graph[caminho[i]][caminho[i + 1]];
+    }
+    return custo;
+}
+
+// Verifica se as cidades são válidas
+function validarEntrada(comeco, fim) {
+    if (!graph[comeco] || !graph[fim]) {
+        alert('Ops! Parece que uma das cidades não existe. Dá uma olhada nos nomes!');
+        return false;
+    }
+    return true;
+}
+
+// Algoritmos de busca
+function buscaEmLargura(comeco, fim) {
+    let fila = [{lugar: comeco, trajeto: [comeco]}];
+    let jaFui = new Set();
+    
+    while (fila.length > 0) {
+        let atual = fila.shift();
+        if (atual.lugar == fim) {
+            return {path: atual.trajeto, cost: calcularCustoTotal(atual.trajeto)};
         }
         
-        if (!explored.has(current.node)) {
-            explored.add(current.node);
-            Object.keys(graph[current.node]).forEach(neighbor => {
-                if (!explored.has(neighbor)) {
-                    frontier.push({
-                        node: neighbor,
-                        path: [...current.path, neighbor]
-                    });
+        if (!jaFui.has(atual.lugar)) {
+            jaFui.add(atual.lugar);
+            for (let vizinho in graph[atual.lugar]) {
+                if (!jaFui.has(vizinho)) {
+                    fila.push({lugar: vizinho, trajeto: atual.trajeto.concat(vizinho)});
                 }
-            });
+            }
         }
     }
     return null;
 }
 
 function buscaEmProfundidade(start, end) {
-    function explorar(node, target, currentPath = [], visited = new Set()) {
-        currentPath = [...currentPath, node];
-        visited.add(node);
+    let visitados = new Set();
+    let caminho = [];
+    
+    function mergulhar(cidade, destino) {
+        caminho.push(cidade);
+        visitados.add(cidade);
         
-        if (node === target) {
-            return currentPath;
-        }
+        if (cidade == destino) return caminho;
         
-        for (let nextCity in graph[node]) {
-            if (!visited.has(nextCity)) {
-                const result = explorar(nextCity, target, currentPath, new Set(visited));
-                if (result) return result;
+        for (let proxima in graph[cidade]) {
+            if (!visitados.has(proxima)) {
+                let resultado = mergulhar(proxima, destino);
+                if (resultado) return resultado;
             }
         }
+        caminho.pop(); // volta atrás se não achar
         return null;
     }
     
-    const path = explorar(start, end);
-    return path ? {path, cost: calculateTotalCost(path)} : null;
+    let resultado = mergulhar(start, end);
+    return resultado ? {path: resultado, cost: calcularCustoTotal(resultado)} : null;
 }
 
-function buscaDeCustoUniforme(start, end) {
-    const priorityQueue = [{node: start, cost: 0, path: [start]}];
-    const seen = new Map();
+function buscaDeCustoUniforme(inicio, fim) {
+    let fila = [{cidade: inicio, custo: 0, caminho: [inicio]}];
+    let vistos = new Map();
     
-    while (priorityQueue.length) {
-        priorityQueue.sort((a, b) => a.cost - b.cost);
-        const {node, cost, path} = priorityQueue.shift();
+    while (fila.length) {
+        fila.sort((a, b) => a.custo - b.custo); // ordena pelo custo, menor primeiro
+        let atual = fila.shift();
         
-        if (node === end) {
-            return {path, cost};
-        }
+        if (atual.cidade == fim) return {path: atual.caminho, cost: atual.custo};
         
-        if (!seen.has(node) || seen.get(node) > cost) {
-            seen.set(node, cost);
-            Object.entries(graph[node]).forEach(([neighbor, distance]) => {
-                priorityQueue.push({
-                    node: neighbor,
-                    cost: cost + distance,
-                    path: [...path, neighbor]
+        if (!vistos.has(atual.cidade) || vistos.get(atual.cidade) > atual.custo) {
+            vistos.set(atual.cidade, atual.custo);
+            for (let [vizinho, distancia] of Object.entries(graph[atual.cidade])) {
+                fila.push({
+                    cidade: vizinho,
+                    custo: atual.custo + distancia,
+                    caminho: [...atual.caminho, vizinho]
                 });
-            });
+            }
         }
     }
     return null;
 }
 
-function buscaEmProfundidadeLimitada(start, end, maxDepth) {
-    function dlsRecursiva(node, target, depth, path = [], visited = new Set()) {
-        path.push(node);
+function buscaEmProfundidadeLimitada(comeco, fim, limite) {
+    let jaFui = new Set();
+    
+    function cavar(cidade, destino, profundidade) {
+        if (profundidade < 0) return null;
+        let caminho = [cidade];
+        jaFui.add(cidade);
         
-        if (node === target) return path;
-        if (depth <= 0) return null;
+        if (cidade == destino) return caminho;
         
-        visited.add(node);
-        
-        for (let neighbor in graph[node]) {
-            if (!visited.has(neighbor)) {
-                const result = dlsRecursiva(neighbor, target, depth - 1, [...path], new Set(visited));
-                if (result) return result;
+        for (let vizinho in graph[cidade]) {
+            if (!jaFui.has(vizinho)) {
+                let proximoPasso = cavar(vizinho, destino, profundidade - 1);
+                if (proximoPasso) return caminho.concat(proximoPasso.slice(1));
             }
         }
         return null;
     }
     
-    const path = dlsRecursiva(start, end, maxDepth);
-    return path ? {path, cost: calculateTotalCost(path)} : null;
+    let resultado = cavar(comeco, fim, limite);
+    return resultado ? {path: resultado, cost: calcularCustoTotal(resultado)} : null;
 }
 
-function buscaDeAprofundamentoIterativo(start, end, maxDepth) {
-    let result = null;
-    for (let depth = 0; depth <= maxDepth && !result; depth++) {
-        result = buscaEmProfundidadeLimitada(start, end, depth);
+function buscaDeAprofundamentoIterativo(start, end, maximo) {
+    for (let i = 0; i <= maximo; i++) {
+        let tentativa = buscaEmProfundidadeLimitada(start, end, i);
+        if (tentativa) return tentativa;
     }
-    return result;
+    return null;
 }
 
-function buscaGulosa(start, end) {
-    const openList = [{node: start, h: heuristic[start], path: [start]}];
-    const closedList = new Set();
+function buscaGulosa(comeco, fim) {
+    let abertos = [{cidade: comeco, estimativa: heuristic[comeco], trajeto: [comeco]}];
+    let fechados = new Set();
     
-    while (openList.length) {
-        openList.sort((a, b) => a.h - b.h);
-        const current = openList.shift();
+    while (abertos.length) {
+        abertos.sort((x, y) => x.estimativa - y.estimativa);
+        let atual = abertos.shift();
         
-        if (current.node === end) {
-            return {
-                path: current.path,
-                cost: calculateTotalCost(current.path)
-            };
+        if (atual.cidade == fim) {
+            return {path: atual.trajeto, cost: calcularCustoTotal(atual.trajeto)};
         }
         
-        if (!closedList.has(current.node)) {
-            closedList.add(current.node);
-            Object.keys(graph[current.node]).forEach(neighbor => {
-                if (!closedList.has(neighbor)) {
-                    openList.push({
-                        node: neighbor,
-                        h: heuristic[neighbor],
-                        path: [...current.path, neighbor]
+        if (!fechados.has(atual.cidade)) {
+            fechados.add(atual.cidade);
+            for (let vizinho in graph[atual.cidade]) {
+                if (!fechados.has(vizinho)) {
+                    abertos.push({
+                        cidade: vizinho,
+                        estimativa: heuristic[vizinho],
+                        trajeto: atual.trajeto.concat(vizinho)
                     });
                 }
-            });
+            }
         }
     }
     return null;
 }
 
 function buscaAEstrela(start, end) {
-    const open = new Map([[start, {cost: 0, h: heuristic[start], path: [start]}]]);
-    const closed = new Map();
+    let abertos = new Map();
+    abertos.set(start, {custoReal: 0, heuristica: heuristic[start], caminho: [start]});
+    let fechados = new Map();
     
-    while (open.size) {
-        let currentNode = [...open.entries()].reduce((a, b) => 
-            (a[1].cost + a[1].h) < (b[1].cost + b[1].h) ? a : b
-        )[0];
-        
-        const current = open.get(currentNode);
-        open.delete(currentNode);
-        
-        if (currentNode === end) {
-            return {path: current.path, cost: current.cost};
+    while (abertos.size > 0) {
+        let melhor = null;
+        let menorF = Infinity;
+        for (let [cidade, info] of abertos) {
+            let f = info.custoReal + info.heuristica;
+            if (f < menorF) {
+                menorF = f;
+                melhor = cidade;
+            }
         }
         
-        closed.set(currentNode, current);
+        let atual = abertos.get(melhor);
+        abertos.delete(melhor);
         
-        Object.entries(graph[currentNode]).forEach(([neighbor, distance]) => {
-            const gScore = current.cost + distance;
-            const hScore = heuristic[neighbor];
-            
-            if (!closed.has(neighbor) || gScore < closed.get(neighbor).cost) {
-                if (!open.has(neighbor) || gScore < open.get(neighbor).cost) {
-                    open.set(neighbor, {
-                        cost: gScore,
-                        h: hScore,
-                        path: [...current.path, neighbor]
+        if (melhor == end) return {path: atual.caminho, cost: atual.custoReal};
+        
+        fechados.set(melhor, atual);
+        
+        for (let [vizinho, distancia] of Object.entries(graph[melhor])) {
+            let novoCusto = atual.custoReal + distancia;
+            if (!fechados.has(vizinho) || novoCusto < fechados.get(vizinho).custoReal) {
+                if (!abertos.has(vizinho) || novoCusto < abertos.get(vizinho).custoReal) {
+                    abertos.set(vizinho, {
+                        custoReal: novoCusto,
+                        heuristica: heuristic[vizinho],
+                        caminho: [...atual.caminho, vizinho]
                     });
                 }
             }
-        });
+        }
     }
     return null;
 }
 
-// Descrições dos algoritmos em português brasileiro
-const algorithmDescriptions = {
-    bfs: "Busca em Largura (BFS): Explora todas as cidades vizinhas de forma nivelada, garantindo o menor número de conexões até o destino.",
-    dfs: "Busca em Profundidade (DFS): Segue um caminho até o fim antes de retroceder, explorando profundamente cada ramificação.",
-    ucs: "Busca de Custo Uniforme (UCS): Encontra o caminho de menor custo total, considerando as distâncias reais entre cidades.",
-    dls: "Busca em Profundidade Limitada (DLS): Similar ao DFS, mas restringe a profundidade de exploração a um limite específico.",
-    iddfs: "Busca de Aprofundamento Iterativo (IDDFS): Combina vantagens do BFS e DFS, aumentando gradualmente o limite de profundidade.",
-    greedy: "Busca Gulosa (Greedy): Escolhe o próximo passo baseado apenas na distância estimada até o destino (heurística).",
-    astar: "A* (A-Star): Encontra o caminho ótimo combinando o custo real percorrido com uma estimativa heurística do destino."
+// Textinhos sobre cada algoritmo
+const descricoes = {
+    bfs: "Busca em Largura (BFS): Vai olhando todas as cidades vizinhas de uma vez, tipo uma onda, até achar o destino.",
+    dfs: "Busca em Profundidade (DFS): Mergulha fundo num caminho até o fim, depois volta se não der certo.",
+    ucs: "Busca de Custo Uniforme (UCS): Procura o caminho mais barato, olhando as distâncias reais entre as cidades.",
+    dls: "Busca em Profundidade Limitada (DLS): Igual o DFS, mas para antes de ir fundo demais.",
+    iddfs: "Busca de Aprofundamento Iterativo (IDDFS): Tenta um pouco fundo, depois mais fundo, até achar ou desistir.",
+    greedy: "Busca Gulosa (Greedy): Vai sempre na direção que parece mais perto do destino, sem pensar muito no custo.",
+    astar: "A* (A-Star): Mistura o custo real com uma estimativa pra achar o melhor caminho rapidinho."
 };
 
-// Modificar o evento do botão de busca para usar os novos nomes
-document.getElementById('search-btn').addEventListener('click', function() {
-    const start = document.getElementById('start').value;
-    const end = document.getElementById('end').value;
-    const algorithm = document.getElementById('algorithm').value;
-    const resultContainer = document.getElementById('result-container');
-    const pathEl = document.getElementById('path');
-    const costEl = document.getElementById('cost');
-    const detailsEl = document.getElementById('details');
+// Botão de busca
+document.getElementById('search-btn').onclick = function() {
+    let comeco = document.getElementById('start').value;
+    let fim = document.getElementById('end').value;
+    let algo = document.getElementById('algorithm').value;
+    let resultadoBox = document.getElementById('result-container');
+    let caminhoTexto = document.getElementById('path');
+    let custoTexto = document.getElementById('cost');
+    let detalhes = document.getElementById('details');
     
-    if (!start || !end || !algorithm) {
-        alert('Por favor, selecione a cidade de partida, destino e um algoritmo');
+    if (!comeco || !fim || !algo) {
+        alert('Faltou escolher alguma coisa! Cidade de início, fim ou o algoritmo!');
         return;
     }
     
-    if (!validateInput(start, end)) return;
+    if (!validarEntrada(comeco, fim)) return;
     
-    let result = null;
+    let caminhoAchado = null;
     
-    switch (algorithm) {
-        case 'bfs':
-            result = buscaEmLargura(start, end);
-            break;
-        case 'dfs':
-            result = buscaEmProfundidade(start, end);
-            break;
-        case 'ucs':
-            result = buscaDeCustoUniforme(start, end);
-            break;
-        case 'dls':
-            const limit = parseInt(document.getElementById('depth-limit').value) || 3;
-            result = buscaEmProfundidadeLimitada(start, end, limit);
-            break;
-        case 'iddfs':
-            const maxDepth = parseInt(document.getElementById('max-depth').value) || 10;
-            result = buscaDeAprofundamentoIterativo(start, end, maxDepth);
-            break;
-        case 'greedy':
-            result = buscaGulosa(start, end);
-            break;
-        case 'astar':
-            result = buscaAEstrela(start, end);
-            break;
+    if (algo == 'bfs') caminhoAchado = buscaEmLargura(comeco, fim);
+    else if (algo == 'dfs') caminhoAchado = buscaEmProfundidade(comeco, fim);
+    else if (algo == 'ucs') caminhoAchado = buscaDeCustoUniforme(comeco, fim);
+    else if (algo == 'dls') {
+        let limite = parseInt(document.getElementById('depth-limit').value) || 3;
+        caminhoAchado = buscaEmProfundidadeLimitada(comeco, fim, limite);
     }
+    else if (algo == 'iddfs') {
+        let maximo = parseInt(document.getElementById('max-depth').value) || 10;
+        caminhoAchado = buscaDeAprofundamentoIterativo(comeco, fim, maximo);
+    }
+    else if (algo == 'greedy') caminhoAchado = buscaGulosa(comeco, fim);
+    else if (algo == 'astar') caminhoAchado = buscaAEstrela(comeco, fim);
     
-    detailsEl.textContent = algorithmDescriptions[algorithm] || "";
+    detalhes.innerText = descricoes[algo] || "Algo deu errado aqui...";
     
-    if (result) {
-        pathEl.textContent = "Caminho encontrado: " + result.path.join(' → ');
-        costEl.textContent = `Custo total: ${result.cost} km`;
-        resultContainer.classList.remove('hidden');
+    if (caminhoAchado) {
+        caminhoTexto.innerText = "Caminho encontrado: " + caminhoAchado.path.join(' → ');
+        custoTexto.innerText = "Custo total: " + caminhoAchado.cost + " km";
+        resultadoBox.classList.remove('hidden');
     } else {
-        pathEl.textContent = "Nenhum caminho encontrado";
-        costEl.textContent = "";
-        resultContainer.classList.remove('hidden');
+        caminhoTexto.innerText = "Não achei nenhum caminho...";
+        custoTexto.innerText = "";
+        resultadoBox.classList.remove('hidden');
     }
-});
+};
+
+// Botão de limpar - pra começar de novo
+document.getElementById('clear-btn').onclick = function() {
+    document.getElementById('result-container').classList.add('hidden');
+    document.getElementById('algorithm').value = '';
+    document.getElementById('dls-params').style.display = 'none';
+    document.getElementById('iddfs-params').style.display = 'none';
+};
+
+// Carrega as cidades quando a página abre
+window.onload = function() {
+    preencherDropdownsCidades();
+};
     </script>
 </body>
 </html>
