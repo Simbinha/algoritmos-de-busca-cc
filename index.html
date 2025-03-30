@@ -162,362 +162,250 @@
     </div>
     
     <script>
-        // Grafo das cidades e distâncias
-        const graph = {
-            'Arad': {'Zerind': 75, 'Sibiu': 140, 'Timisoara': 118},
-            'Zerind': {'Arad': 75, 'Oradea': 71},
-            'Oradea': {'Zerind': 71, 'Sibiu': 151},
-            'Sibiu': {'Arad': 140, 'Oradea': 151, 'Fagaras': 99, 'RimnicuVilcea': 80},
-            'Timisoara': {'Arad': 118, 'Lugoj': 111},
-            'Lugoj': {'Timisoara': 111, 'Mehadia': 70},
-            'Mehadia': {'Lugoj': 70, 'Drobeta': 75},
-            'Drobeta': {'Mehadia': 75, 'Craiova': 120},
-            'Craiova': {'Drobeta': 120, 'RimnicuVilcea': 146, 'Pitesti': 138},
-            'RimnicuVilcea': {'Sibiu': 80, 'Craiova': 146, 'Pitesti': 97},
-            'Fagaras': {'Sibiu': 99, 'Bucharest': 211},
-            'Pitesti': {'RimnicuVilcea': 97, 'Craiova': 138, 'Bucharest': 101},
-            'Bucharest': {'Fagaras': 211, 'Pitesti': 101, 'Giurgiu': 90, 'Urziceni': 85},
-            'Giurgiu': {'Bucharest': 90},
-            'Urziceni': {'Bucharest': 85, 'Hirsova': 98, 'Vaslui': 142},
-            'Hirsova': {'Urziceni': 98, 'Eforie': 86},
-            'Eforie': {'Hirsova': 86},
-            'Vaslui': {'Urziceni': 142, 'Iasi': 92},
-            'Iasi': {'Vaslui': 92, 'Neamt': 87},
-            'Neamt': {'Iasi': 87}
-        };
+// Algoritmos de busca com nomes em português brasileiro
+
+function buscaEmLargura(start, end) {
+    const frontier = [{node: start, path: [start]}];
+    const explored = new Set();
+    
+    while (frontier.length) {
+        const current = frontier.shift();
         
-        // Valores heurísticos (distância em linha reta até Bucharest)
-        const heuristic = {
-            'Arad': 366,
-            'Zerind': 374,
-            'Oradea': 380,
-            'Sibiu': 253,
-            'Timisoara': 329,
-            'Lugoj': 244,
-            'Mehadia': 241,
-            'Drobeta': 242,
-            'Craiova': 160,
-            'RimnicuVilcea': 193,
-            'Fagaras': 176,
-            'Pitesti': 100,
-            'Bucharest': 0,
-            'Giurgiu': 77,
-            'Urziceni': 80,
-            'Hirsova': 151,
-            'Eforie': 161,
-            'Vaslui': 199,
-            'Iasi': 226,
-            'Neamt': 234
-        };
+        if (current.node === end) {
+            return {
+                path: current.path,
+                cost: calculateTotalCost(current.path)
+            };
+        }
         
-        // Preencher os dropdowns de cidades
-        function populateCityDropdowns() {
-            const cities = Object.keys(graph).sort();
-            const startSelect = document.getElementById('start');
-            const endSelect = document.getElementById('end');
-            
-            cities.forEach(city => {
-                startSelect.innerHTML += `<option value="${city}">${city}</option>`;
-                endSelect.innerHTML += `<option value="${city}">${city}</option>`;
+        if (!explored.has(current.node)) {
+            explored.add(current.node);
+            Object.keys(graph[current.node]).forEach(neighbor => {
+                if (!explored.has(neighbor)) {
+                    frontier.push({
+                        node: neighbor,
+                        path: [...current.path, neighbor]
+                    });
+                }
             });
-            
-            // Valores padrão
-            startSelect.value = 'Arad';
-            endSelect.value = 'Bucharest';
+        }
+    }
+    return null;
+}
+
+function buscaEmProfundidade(start, end) {
+    function explorar(node, target, currentPath = [], visited = new Set()) {
+        currentPath = [...currentPath, node];
+        visited.add(node);
+        
+        if (node === target) {
+            return currentPath;
         }
         
-        // Mostrar parâmetros adicionais com base no algoritmo selecionado
-        document.getElementById('algorithm').addEventListener('change', function() {
-            const algorithm = this.value;
-            const dlsParams = document.getElementById('dls-params');
-            const iddfsParams = document.getElementById('iddfs-params');
-            
-            dlsParams.style.display = algorithm === 'dls' ? 'block' : 'none';
-            iddfsParams.style.display = algorithm === 'iddfs' ? 'block' : 'none';
-        });
-        
-        // Funções de validação
-        function validateInput(start, end) {
-            if (!graph[start] || !graph[end]) {
-                alert("Cidade de partida ou chegada inválida. Verifique os nomes.");
-                return false;
-            }
-            return true;
-        }
-        
-        // Funções utilitárias
-        function calculateTotalCost(path) {
-            if (!path || path.length < 2) return 0;
-            
-            let totalCost = 0;
-            for (let i = 0; i < path.length - 1; i++) {
-                const current = path[i];
-                const next = path[i + 1];
-                totalCost += graph[current][next];
-            }
-            return totalCost;
-        }
-        
-        // Algoritmos de busca
-        function bfs(start, end) {
-            const queue = [[start, [start]]];  // [node, path]
-            const visited = new Set();
-            
-            while (queue.length > 0) {
-                const [node, path] = queue.shift();
-                
-                if (node === end) {
-                    return {
-                        path: path,
-                        cost: calculateTotalCost(path)
-                    };
-                }
-                
-                if (!visited.has(node)) {
-                    visited.add(node);
-                    for (const neighbor in graph[node]) {
-                        if (!visited.has(neighbor)) {
-                            queue.push([neighbor, [...path, neighbor]]);
-                        }
-                    }
-                }
-            }
-            return null;
-        }
-        
-        function dfs(start, end, path = [], visited = new Set(), cost = 0) {
-            path.push(start);
-            
-            if (start === end) {
-                return {path: [...path], cost};
-            }
-            
-            visited.add(start);
-            
-            for (const neighbor in graph[start]) {
-                if (!visited.has(neighbor)) {
-                    const result = dfs(neighbor, end, [...path], new Set([...visited]), cost + graph[start][neighbor]);
-                    if (result) return result;
-                }
-            }
-            
-            return null;
-        }
-        
-        function ucs(start, end) {
-            const queue = [[start, 0, [start]]]; // [node, cost, path]
-            const visited = new Set();
-            
-            while (queue.length > 0) {
-                queue.sort((a, b) => a[1] - b[1]); // Ordenar pelo custo
-                const [node, cost, path] = queue.shift();
-                
-                if (node === end) {
-                    return {
-                        path: path,
-                        cost: cost
-                    };
-                }
-                
-                if (!visited.has(node)) {
-                    visited.add(node);
-                    for (const neighbor in graph[node]) {
-                        const newCost = cost + graph[node][neighbor];
-                        const newPath = [...path, neighbor];
-                        queue.push([neighbor, newCost, newPath]);
-                    }
-                }
-            }
-            return null;
-        }
-        
-        function dls(start, end, limit, path = [], visited = new Set(), cost = 0) {
-            path = [...path, start];
-            
-            if (start === end) {
-                return {path: [...path], cost};
-            }
-            
-            if (limit <= 0) {
-                return null;
-            }
-            
-            visited.add(start);
-            
-            for (const neighbor in graph[start]) {
-                if (!visited.has(neighbor)) {
-                    const newVisited = new Set([...visited]);
-                    const result = dls(neighbor, end, limit - 1, [...path], newVisited, cost + graph[start][neighbor]);
-                    if (result) return result;
-                }
-            }
-            
-            return null;
-        }
-        
-        function iddfs(start, end, maxDepth) {
-            for (let depth = 0; depth <= maxDepth; depth++) {
-                const result = dls(start, end, depth);
+        for (let nextCity in graph[node]) {
+            if (!visited.has(nextCity)) {
+                const result = explorar(nextCity, target, currentPath, new Set(visited));
                 if (result) return result;
             }
-            return null;
+        }
+        return null;
+    }
+    
+    const path = explorar(start, end);
+    return path ? {path, cost: calculateTotalCost(path)} : null;
+}
+
+function buscaDeCustoUniforme(start, end) {
+    const priorityQueue = [{node: start, cost: 0, path: [start]}];
+    const seen = new Map();
+    
+    while (priorityQueue.length) {
+        priorityQueue.sort((a, b) => a.cost - b.cost);
+        const {node, cost, path} = priorityQueue.shift();
+        
+        if (node === end) {
+            return {path, cost};
         }
         
-        function greedyBestFirstSearch(start, end) {
-            const queue = [[heuristic[start] || 0, start, [start]]]; // [heuristic, node, path]
-            const visited = new Set();
-            
-            while (queue.length > 0) {
-                queue.sort((a, b) => a[0] - b[0]); // Ordenar pela heurística
-                const [_, node, path] = queue.shift();
-                
-                if (node === end) {
-                    return {
-                        path: path,
-                        cost: calculateTotalCost(path)
-                    };
-                }
-                
-                if (!visited.has(node)) {
-                    visited.add(node);
-                    for (const neighbor in graph[node]) {
-                        if (!visited.has(neighbor)) {
-                            const h = heuristic[neighbor] || 0;
-                            queue.push([h, neighbor, [...path, neighbor]]);
-                        }
-                    }
-                }
+        if (!seen.has(node) || seen.get(node) > cost) {
+            seen.set(node, cost);
+            Object.entries(graph[node]).forEach(([neighbor, distance]) => {
+                priorityQueue.push({
+                    node: neighbor,
+                    cost: cost + distance,
+                    path: [...path, neighbor]
+                });
+            });
+        }
+    }
+    return null;
+}
+
+function buscaEmProfundidadeLimitada(start, end, maxDepth) {
+    function dlsRecursiva(node, target, depth, path = [], visited = new Set()) {
+        path.push(node);
+        
+        if (node === target) return path;
+        if (depth <= 0) return null;
+        
+        visited.add(node);
+        
+        for (let neighbor in graph[node]) {
+            if (!visited.has(neighbor)) {
+                const result = dlsRecursiva(neighbor, target, depth - 1, [...path], new Set(visited));
+                if (result) return result;
             }
-            return null;
+        }
+        return null;
+    }
+    
+    const path = dlsRecursiva(start, end, maxDepth);
+    return path ? {path, cost: calculateTotalCost(path)} : null;
+}
+
+function buscaDeAprofundamentoIterativo(start, end, maxDepth) {
+    let result = null;
+    for (let depth = 0; depth <= maxDepth && !result; depth++) {
+        result = buscaEmProfundidadeLimitada(start, end, depth);
+    }
+    return result;
+}
+
+function buscaGulosa(start, end) {
+    const openList = [{node: start, h: heuristic[start], path: [start]}];
+    const closedList = new Set();
+    
+    while (openList.length) {
+        openList.sort((a, b) => a.h - b.h);
+        const current = openList.shift();
+        
+        if (current.node === end) {
+            return {
+                path: current.path,
+                cost: calculateTotalCost(current.path)
+            };
         }
         
-        function aStar(start, end) {
-            const openSet = [start];
-            const cameFrom = {};
-            const gScore = {};
-            const fScore = {};
-            
-            // Inicializar gScore e fScore
-            for (const node in graph) {
-                gScore[node] = Infinity;
-                fScore[node] = Infinity;
-            }
-            
-            gScore[start] = 0;
-            fScore[start] = heuristic[start] || 0;
-            
-            while (openSet.length > 0) {
-                // Encontrar o nó com menor fScore
-                let current = openSet.reduce((a, b) => fScore[a] < fScore[b] ? a : b);
-                
-                if (current === end) {
-                    // Reconstruir caminho
-                    const path = [current];
-                    while (cameFrom[current]) {
-                        current = cameFrom[current];
-                        path.unshift(current);
-                    }
-                    return {path, cost: gScore[end]};
+        if (!closedList.has(current.node)) {
+            closedList.add(current.node);
+            Object.keys(graph[current.node]).forEach(neighbor => {
+                if (!closedList.has(neighbor)) {
+                    openList.push({
+                        node: neighbor,
+                        h: heuristic[neighbor],
+                        path: [...current.path, neighbor]
+                    });
                 }
-                
-                openSet.splice(openSet.indexOf(current), 1);
-                
-                for (const neighbor in graph[current]) {
-                    const tentativeGScore = gScore[current] + graph[current][neighbor];
-                    
-                    if (tentativeGScore < gScore[neighbor]) {
-                        cameFrom[neighbor] = current;
-                        gScore[neighbor] = tentativeGScore;
-                        fScore[neighbor] = gScore[neighbor] + (heuristic[neighbor] || 0);
-                        
-                        if (!openSet.includes(neighbor)) {
-                            openSet.push(neighbor);
-                        }
-                    }
-                }
-            }
-            return null;
+            });
+        }
+    }
+    return null;
+}
+
+function buscaAEstrela(start, end) {
+    const open = new Map([[start, {cost: 0, h: heuristic[start], path: [start]}]]);
+    const closed = new Map();
+    
+    while (open.size) {
+        let currentNode = [...open.entries()].reduce((a, b) => 
+            (a[1].cost + a[1].h) < (b[1].cost + b[1].h) ? a : b
+        )[0];
+        
+        const current = open.get(currentNode);
+        open.delete(currentNode);
+        
+        if (currentNode === end) {
+            return {path: current.path, cost: current.cost};
         }
         
-        // Executar busca
-        document.getElementById('search-btn').addEventListener('click', function() {
-            const start = document.getElementById('start').value;
-            const end = document.getElementById('end').value;
-            const algorithm = document.getElementById('algorithm').value;
-            const resultContainer = document.getElementById('result-container');
-            const pathEl = document.getElementById('path');
-            const costEl = document.getElementById('cost');
-            const detailsEl = document.getElementById('details');
-            
-            if (!start || !end || !algorithm) {
-                alert('Por favor, selecione a cidade de partida, destino e um algoritmo');
-                return;
-            }
-            
-            if (!validateInput(start, end)) {
-                return;
-            }
-            
-            let result = null;
-            
-            // Executar o algoritmo selecionado
-            switch (algorithm) {
-                case 'bfs':
-                    result = bfs(start, end);
-                    detailsEl.textContent = "Busca em Largura (BFS): Explora todos os vizinhos do nó atual antes de avançar.";
-                    break;
-                case 'dfs':
-                    result = dfs(start, end);
-                    detailsEl.textContent = "Busca em Profundidade (DFS): Explora o caminho até o máximo possível antes de voltar.";
-                    break;
-                case 'ucs':
-                    result = ucs(start, end);
-                    detailsEl.textContent = "Busca de Custo Uniforme (UCS): Explora os caminhos por ordem de custo crescente.";
-                    break;
-                case 'dls':
-                    const limit = parseInt(document.getElementById('depth-limit').value) || 3;
-                    result = dls(start, end, limit);
-                    detailsEl.textContent = `Busca em Profundidade Limitada (DLS): DFS com limite de profundidade ${limit}.`;
-                    break;
-                case 'iddfs':
-                    const maxDepth = parseInt(document.getElementById('max-depth').value) || 10;
-                    result = iddfs(start, end, maxDepth);
-                    detailsEl.textContent = `Busca de Aprofundamento Iterativo (IDDFS): Executa DLS com profundidade crescente até ${maxDepth}.`;
-                    break;
-                case 'greedy':
-                    result = greedyBestFirstSearch(start, end);
-                    detailsEl.textContent = "Busca Gulosa (Greedy): Escolhe sempre o nó mais próximo do objetivo com base na heurística.";
-                    break;
-                case 'astar':
-                    result = aStar(start, end);
-                    detailsEl.textContent = "A* (A-Star): Combina custo real do caminho com heurística para encontrar o caminho ótimo.";
-                    break;
-            }
-            
-            // Exibir resultado
-            if (result) {
-                pathEl.textContent = "Caminho encontrado: " + result.path.join(' → ');
-                costEl.textContent = `Custo total: ${result.cost} km`;
-                resultContainer.classList.remove('hidden');
-            } else {
-                pathEl.textContent = "Nenhum caminho encontrado";
-                costEl.textContent = "";
-                resultContainer.classList.remove('hidden');
-            }
-        });
+        closed.set(currentNode, current);
         
-        // Limpar resultados
-        document.getElementById('clear-btn').addEventListener('click', function() {
-            document.getElementById('result-container').classList.add('hidden');
-            document.getElementById('algorithm').value = '';
-            document.getElementById('dls-params').style.display = 'none';
-            document.getElementById('iddfs-params').style.display = 'none';
+        Object.entries(graph[currentNode]).forEach(([neighbor, distance]) => {
+            const gScore = current.cost + distance;
+            const hScore = heuristic[neighbor];
+            
+            if (!closed.has(neighbor) || gScore < closed.get(neighbor).cost) {
+                if (!open.has(neighbor) || gScore < open.get(neighbor).cost) {
+                    open.set(neighbor, {
+                        cost: gScore,
+                        h: hScore,
+                        path: [...current.path, neighbor]
+                    });
+                }
+            }
         });
-        
-        // Inicializar a página
-        document.addEventListener('DOMContentLoaded', function() {
-            populateCityDropdowns();
-        });
+    }
+    return null;
+}
+
+// Descrições dos algoritmos em português brasileiro
+const algorithmDescriptions = {
+    bfs: "Busca em Largura (BFS): Explora todas as cidades vizinhas de forma nivelada, garantindo o menor número de conexões até o destino.",
+    dfs: "Busca em Profundidade (DFS): Segue um caminho até o fim antes de retroceder, explorando profundamente cada ramificação.",
+    ucs: "Busca de Custo Uniforme (UCS): Encontra o caminho de menor custo total, considerando as distâncias reais entre cidades.",
+    dls: "Busca em Profundidade Limitada (DLS): Similar ao DFS, mas restringe a profundidade de exploração a um limite específico.",
+    iddfs: "Busca de Aprofundamento Iterativo (IDDFS): Combina vantagens do BFS e DFS, aumentando gradualmente o limite de profundidade.",
+    greedy: "Busca Gulosa (Greedy): Escolhe o próximo passo baseado apenas na distância estimada até o destino (heurística).",
+    astar: "A* (A-Star): Encontra o caminho ótimo combinando o custo real percorrido com uma estimativa heurística do destino."
+};
+
+// Modificar o evento do botão de busca para usar os novos nomes
+document.getElementById('search-btn').addEventListener('click', function() {
+    const start = document.getElementById('start').value;
+    const end = document.getElementById('end').value;
+    const algorithm = document.getElementById('algorithm').value;
+    const resultContainer = document.getElementById('result-container');
+    const pathEl = document.getElementById('path');
+    const costEl = document.getElementById('cost');
+    const detailsEl = document.getElementById('details');
+    
+    if (!start || !end || !algorithm) {
+        alert('Por favor, selecione a cidade de partida, destino e um algoritmo');
+        return;
+    }
+    
+    if (!validateInput(start, end)) return;
+    
+    let result = null;
+    
+    switch (algorithm) {
+        case 'bfs':
+            result = buscaEmLargura(start, end);
+            break;
+        case 'dfs':
+            result = buscaEmProfundidade(start, end);
+            break;
+        case 'ucs':
+            result = buscaDeCustoUniforme(start, end);
+            break;
+        case 'dls':
+            const limit = parseInt(document.getElementById('depth-limit').value) || 3;
+            result = buscaEmProfundidadeLimitada(start, end, limit);
+            break;
+        case 'iddfs':
+            const maxDepth = parseInt(document.getElementById('max-depth').value) || 10;
+            result = buscaDeAprofundamentoIterativo(start, end, maxDepth);
+            break;
+        case 'greedy':
+            result = buscaGulosa(start, end);
+            break;
+        case 'astar':
+            result = buscaAEstrela(start, end);
+            break;
+    }
+    
+    detailsEl.textContent = algorithmDescriptions[algorithm] || "";
+    
+    if (result) {
+        pathEl.textContent = "Caminho encontrado: " + result.path.join(' → ');
+        costEl.textContent = `Custo total: ${result.cost} km`;
+        resultContainer.classList.remove('hidden');
+    } else {
+        pathEl.textContent = "Nenhum caminho encontrado";
+        costEl.textContent = "";
+        resultContainer.classList.remove('hidden');
+    }
+});
     </script>
 </body>
 </html>
